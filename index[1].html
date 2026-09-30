@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calculatrice Scientifique</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --panel:#ffffff; --text:#1a1a2e; --muted:#6b7280;
+    --accent:#1f4e79; --accent2:#2e7d5b; --border:#e2e5ea; --btn:#eef1f5;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ --bg:#14161f; --panel:#1d2030; --text:#eceef2; --muted:#9aa0ac; --accent:#5b9bd5; --accent2:#4fbd8b; --border:#2c2f3d; --btn:#262a3a; }
+  }
+  :root[data-theme="dark"]{ --bg:#14161f; --panel:#1d2030; --text:#eceef2; --muted:#9aa0ac; --accent:#5b9bd5; --accent2:#4fbd8b; --border:#2c2f3d; --btn:#262a3a; }
+  *{box-sizing:border-box;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;}
+  .app{max-width:520px;margin:0 auto;padding:14px;}
+  h1{font-size:1.1rem;text-align:center;margin:6px 0 12px;}
+  h2{font-size:.95rem;margin:0 0 8px;color:var(--accent);}
+  select#nav{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:.95rem;margin-bottom:12px;}
+  .panel{display:none;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
+  .panel.active{display:block;}
+  #ecran{width:100%;font-size:1.5rem;text-align:right;padding:14px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:8px;}
+  .grille{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+  .grille button{padding:13px 0;font-size:1rem;border:1px solid var(--border);border-radius:10px;background:var(--btn);color:var(--text);cursor:pointer;}
+  .grille button:active{background:var(--accent);color:#fff;}
+  .grille button.eq{background:var(--accent2);color:#fff;}
+  .ligne{display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap;}
+  .ligne label{color:var(--muted);font-size:.82rem;min-width:60px;}
+  .ligne input, .ligne select, .ligne textarea{flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;}
+  .ligne input.court{max-width:56px;flex:none;}
+  textarea{width:100%;min-height:60px;font-family:Consolas,monospace;}
+  .btn{padding:9px 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;font-size:.88rem;}
+  .btn.vert{background:var(--accent2);}
+  .btn.petit{padding:4px 10px;font-size:.75rem;}
+  canvas{width:100%;height:230px;border-radius:10px;background:var(--bg);border:1px solid var(--border);}
+  .erreur{color:#d9534f;font-size:.83rem;margin-top:6px;min-height:1em;}
+  .resultat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px;font-size:.92rem;line-height:1.6;}
+  .etapes{color:var(--muted);font-size:.82rem;margin-top:4px;}
+  .legende{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;font-size:.8rem;}
+  .puce{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;}
+  .histoire{margin-top:12px;border-top:1px solid var(--border);padding-top:8px;}
+  .histoire-titre{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:.8rem;margin-bottom:6px;}
+  #listeHistorique{list-style:none;margin:0;padding:0;max-height:140px;overflow-y:auto;}
+  #listeHistorique li{padding:6px 4px;border-bottom:1px solid var(--border);font-size:.85rem;cursor:pointer;}
+  .sous{display:none;}
+  .sous.active{display:block;}
+  .pied{margin-top:14px;text-align:center;}
+  .pied a{color:var(--accent);text-decoration:none;font-size:.88rem;}
+  .note{color:var(--muted);font-size:.76rem;text-align:center;margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🧮 Calculatrice Scientifique</h1>
+  <select id="nav">
+    <option value="p-calc">Calculatrice</option>
+    <option value="p-graph">Graphique</option>
+    <option value="p-eq">Équations</option>
+    <option value="p-mat">Matrices</option>
+    <option value="p-pro">🔓 Version Pro</option>
+  </select>
+
+  <!-- CALCULATRICE -->
+  <div class="panel active" id="p-calc">
+    <input id="ecran" readonly>
+    <div class="grille" id="grille"></div>
+    <div class="histoire">
+      <div class="histoire-titre"><span>Historique</span><button class="btn petit" id="viderHist">Vider</button></div>
+      <ul id="listeHistorique"></ul>
+    </div>
+    <div class="note">Raccourcis clavier actifs : chiffres, + - * / ^ ( ), Entrée = calculer, Échap = effacer</div>
+  </div>
+
+  <!-- GRAPHIQUE -->
+  <div class="panel" id="p-graph">
+    <div class="ligne"><label>f(x); g(x)…</label><input id="fx" value="sin(x); cos(x)"></div>
+    <div class="ligne">
+      <label>x min</label><input class="court" id="xmin" value="-10">
+      <label>x max</label><input class="court" id="xmax" value="10">
+    </div>
+    <div class="ligne"><button class="btn" id="tracer">Tracer</button><button class="btn vert" id="exporterPng">Télécharger PNG</button></div>
+    <canvas id="graphe" width="600" height="230"></canvas>
+    <div class="legende" id="legende"></div>
+    <div class="erreur" id="erreurGraph"></div>
+  </div>
+
+  <!-- ÉQUATIONS -->
+  <div class="panel" id="p-eq">
+    <h2>Second degré : ax² + bx + c = 0</h2>
+    <div class="ligne">
+      <label>a</label><input class="court" id="eqA" value="1">
+      <label>b</label><input class="court" id="eqB" value="-3">
+      <label>c</label><input class="court" id="eqC" value="2">
+      <button class="btn" id="resoudreQuad">Résoudre</button>
+    </div>
+    <div class="resultat" id="resQuad"></div>
+
+    <h2 style="margin-top:16px">Système à 2 inconnues</h2>
+    <div class="ligne"><label>Éq. 1</label><input class="court" id="sA1" value="2"><span>x +</span><input class="court" id="sB1" value="1"><span>y =</span><input class="court" id="sC1" value="5"></div>
+    <div class="ligne"><label>Éq. 2</label><input class="court" id="sA2" value="1"><span>x +</span><input class="court" id="sB2" value="3"><span>y =</span><input class="court" id="sC2" value="10"></div>
+    <div class="ligne"><button class="btn" id="resoudreSys">Résoudre</button></div>
+    <div class="resultat" id="resSys"></div>
+  </div>
+
+  <!-- DERIVEES / INTEGRALES -->
+  <div class="panel" id="p-deriv">
+    <div class="ligne"><label>f(x) =</label><input id="dExpr" value="x^3 + sin(2*x)"></div>
+    <div class="ligne"><button class="btn" id="btnDeriver">Dériver</button><button class="btn vert" id="btnIntegrer">Intégrer (approx.)</button></div>
+    <div class="resultat" id="resDeriv"></div>
+    <div class="note">L'intégration ne gère que les termes usuels sans fonction composée (ex. x^2, sin(x), mais pas sin(2x)). La dérivation, elle, gère les fonctions composées.</div>
+  </div>
+
+  <!-- MATRICES -->
+  <div class="panel" id="p-mat">
+    <div class="ligne"><label>Matrice A</label></div>
+    <textarea id="matA" placeholder="1,2;3,4">1,2;3,4</textarea>
+    <div class="ligne" style="margin-top:8px">
+      <button class="btn" id="btnDet">Déterminant</button>
+      <button class="btn" id="btnInv">Inverse</button>
+    </div>
+    <div class="resultat" id="resMat"></div>
+
+    <h2 style="margin-top:16px">Résoudre Ax = b</h2>
+    <div class="ligne"><label>Vecteur b</label><input id="vecB" value="5,10"></div>
+    <div class="ligne"><button class="btn" id="btnSysMat">Résoudre</button></div>
+    <div class="resultat" id="resSysMat"></div>
+    <div class="note">Format : lignes séparées par ; valeurs séparées par ,</div>
+  </div>
+
+  <!-- COMPLEXES -->
+  <div class="panel" id="p-cplx">
+    <div class="ligne"><label>z1 = </label><input class="court" id="c1re" value="3"><span>+</span><input class="court" id="c1im" value="4"><span>i</span></div>
+    <div class="ligne"><label>z2 = </label><input class="court" id="c2re" value="1"><span>+</span><input class="court" id="c2im" value="-2"><span>i</span></div>
+    <div class="ligne"><label>Opération</label>
+      <select id="cOp"><option value="+">z1 + z2</option><option value="-">z1 − z2</option><option value="*">z1 × z2</option><option value="/">z1 / z2</option></select>
+      <button class="btn" id="btnCplx">Calculer</button>
+    </div>
+    <div class="resultat" id="resCplx"></div>
+  </div>
+
+  <!-- UNITES -->
+  <div class="panel" id="p-unit">
+    <div class="ligne"><label>Catégorie</label>
+      <select id="uCat"><option value="angle">Angle</option><option value="longueur">Longueur</option><option value="masse">Masse</option><option value="temperature">Température</option></select>
+    </div>
+    <div class="ligne"><label>De</label><select id="uFrom"></select><label>À</label><select id="uTo"></select></div>
+    <div class="ligne"><label>Valeur</label><input id="uVal" value="1"></div>
+    <div class="resultat" id="resUnit"></div>
+  </div>
+
+  <!-- VERSION PRO (deblocage par code) -->
+  <div class="panel" id="p-pro">
+    <h2>🔓 Débloquer la version Pro</h2>
+    <p style="font-size:.88rem;color:var(--muted)">Dérivées &amp; intégrales, nombres complexes, conversions d'unités — accès à vie pour 500 FCFA.</p>
+    <p style="font-size:.85rem">📱 Envoie le paiement par Airtel Money ou Moov Money, puis écris-moi sur WhatsApp pour recevoir ton code.</p>
+    <div class="ligne"><label>Code</label><input id="codePro" placeholder="Entre ton code"><button class="btn vert" id="btnDebloquer">Valider</button></div>
+    <div class="resultat" id="resPro"></div>
+  </div>
+
+  <div class="pied">
+    <a href="https://buymeacoffee.com/" target="_blank" rel="noopener">☕ Soutenir ce projet</a>
+    <div class="note">Remplace ce lien par le tien (Buy Me a Coffee, Ko-fi, Stripe...)</div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// MOTEUR SYMBOLIQUE (identique a la version testee separement)
+// ============================================================
+const num = v => ({t:'num', v});
+const varX = () => ({t:'var'});
+const cst = name => ({t:'const', name});
+const bin = (op,l,r) => ({t:'bin', op, l, r});
+const un = (op,a) => ({t:'un', op, a});
+const fnN = (name,a) => ({t:'func', name, a});
+
+class ParseurAST {
+  constructor(s){ this.s = s.replace(/\s+/g,''); this.i = 0; }
+  peek(){ return this.s[this.i]; }
+  parse(){ const n = this.addsub(); if (this.i < this.s.length) throw new Error('caractere inattendu'); return n; }
+  addsub(){ let n = this.muldiv(); while ('+-'.includes(this.peek())) { const op = this.s[this.i++]; n = bin(op, n, this.muldiv()); } return n; }
+  muldiv(){ let n = this.pow(); while ('*/'.includes(this.peek())) { const op = this.s[this.i++]; n = bin(op, n, this.pow()); } return n; }
+  pow(){ const b = this.unary(); if (this.peek() === '^') { this.i++; return bin('^', b, this.pow()); } return b; }
+  unary(){ if (this.peek() === '-') { this.i++; return un('-', this.unary()); } if (this.peek() === '+') { this.i++; return this.unary(); } return this.atom(); }
+  atom(){
+    const c = this.peek();
+    if (c === '(') { this.i++; const n = this.addsub(); if (this.peek() !== ')') throw new Error('parenthese manquante'); this.i++; return n; }
+    if (/[0-9.]/.test(c)) return this.nombre();
+    if (/[a-zA-Z]/.test(c)) return this.ident();
+    throw new Error('expression invalide');
+  }
+  nombre(){ const d = this.i; while (this.i < this.s.length && /[0-9.]/.test(this.s[this.i])) this.i++; return num(parseFloat(this.s.slice(d, this.i))); }
+  ident(){
+    const d = this.i; while (this.i < this.s.length && /[a-zA-Z]/.test(this.s[this.i])) this.i++; const w = this.s.slice(d, this.i);
+    if (w === 'pi') return cst('pi'); if (w === 'e') return cst('e'); if (w === 'x') return varX();
+    if (this.peek() !== '(') throw new Error('symbole inconnu: ' + w);
+    this.i++; const a = this.addsub(); if (this.peek() !== ')') throw new Error('parenthese manquante'); this.i++;
+    return fnN(w, a);
+  }
+}
+const parseAST = s => new ParseurAST(s).parse();
+
+const FONCTIONS = { sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan, sqrt: Math.sqrt, log: Math.log10, ln: Math.log, exp: Math.exp, abs: Math.abs };
+function evaluer(node, xval){
+  switch (node.t) {
+    case 'num': return node.v;
+    case 'var': return xval;
+    case 'const': return node.name === 'pi' ? Math.PI : Math.E;
+    case 'un': { const a = evaluer(node.a, xval); return node.op === '-' ? -a : a; }
+    case 'bin': {
+      const l = evaluer(node.l, xval), r = evaluer(node.r, xval);
+      if (node.op === '+') return l + r; if (node.op === '-') return l - r; if (node.op === '*') return l * r;
+      if (node.op === '/') { if (r === 0) throw new Error('division par zero'); return l / r; }
+      if (node.op === '^') return Math.pow(l, r);
+    }
+    case 'func': { const a = evaluer(node.a, xval); if (node.name in FONCTIONS) return FONCTIONS[node.name](a); throw new Error('fonction inconnue'); }
+  }
+}
+function simplifier(node){
+  if (node.t === 'un') { const a = simplifier(node.a); if (a.t === 'num') return num(-a.v); if (a.t === 'un' && a.op === '-') return a.a; return un('-', a); }
+  if (node.t === 'bin') {
+    const l = simplifier(node.l), r = simplifier(node.r);
+    if (l.t === 'num' && r.t === 'num') {
+      if (node.op === '+') return num(l.v + r.v); if (node.op === '-') return num(l.v - r.v);
+      if (node.op === '*') return num(l.v * r.v); if (node.op === '/' && r.v !== 0) return num(l.v / r.v);
+      if (node.op === '^') return num(Math.pow(l.v, r.v));
+    }
+    if (node.op === '+') { if (l.t === 'num' && l.v === 0) return r; if (r.t === 'num' && r.v === 0) return l; }
+    if (node.op === '-') { if (r.t === 'num' && r.v === 0) return l; }
+    if (node.op === '*') { if ((l.t === 'num' && l.v === 0) || (r.t === 'num' && r.v === 0)) return num(0); if (l.t === 'num' && l.v === 1) return r; if (r.t === 'num' && r.v === 1) return l; }
+    if (node.op === '/') { if (r.t === 'num' && r.v === 1) return l; }
+    if (node.op === '^') { if (r.t === 'num' && r.v === 1) return l; if (r.t === 'num' && r.v === 0) return num(1); }
+    return bin(node.op, l, r);
+  }
+  if (node.t === 'func') return fnN(node.name, simplifier(node.a));
+  return node;
+}
+function deriver(node){
+  switch (node.t) {
+    case 'num': case 'const': return num(0);
+    case 'var': return num(1);
+    case 'un': return un('-', deriver(node.a));
+    case 'bin': {
+      const { op, l, r } = node;
+      if (op === '+') return bin('+', deriver(l), deriver(r));
+      if (op === '-') return bin('-', deriver(l), deriver(r));
+      if (op === '*') return bin('+', bin('*', deriver(l), r), bin('*', l, deriver(r)));
+      if (op === '/') return bin('/', bin('-', bin('*', deriver(l), r), bin('*', l, deriver(r))), bin('^', r, num(2)));
+      if (op === '^') {
+        if (r.t === 'num') return bin('*', bin('*', r, bin('^', l, num(r.v - 1))), deriver(l));
+        if (l.t === 'const' && l.name === 'e') return bin('*', node, deriver(r));
+        throw new Error("derivee non supportee pour base^exposant variables");
+      }
+    }
+    case 'func': {
+      const a = node.a, da = deriver(a);
+      const regles = {
+        sin: () => bin('*', fnN('cos', a), da), cos: () => un('-', bin('*', fnN('sin', a), da)),
+        tan: () => bin('/', da, bin('^', fnN('cos', a), num(2))), sqrt: () => bin('/', da, bin('*', num(2), fnN('sqrt', a))),
+        ln: () => bin('/', da, a), log: () => bin('/', da, bin('*', a, num(Math.LN10))),
+        exp: () => bin('*', fnN('exp', a), da),
+        asin: () => bin('/', da, fnN('sqrt', bin('-', num(1), bin('^', a, num(2))))),
+        acos: () => un('-', bin('/', da, fnN('sqrt', bin('-', num(1), bin('^', a, num(2)))))),
+        atan: () => bin('/', da, bin('+', num(1), bin('^', a, num(2)))),
+      };
+      if (node.name in regles) return regles[node.name]();
+      throw new Error('derivee non supportee pour ' + node.name);
+    }
+  }
+}
+function integrerTerme(node){
+  if (node.t === 'num') return bin('*', node, varX());
+  if (node.t === 'var') return bin('/', bin('^', varX(), num(2)), num(2));
+  if (node.t === 'un' && node.op === '-') { const i = integrerTerme(node.a); return i ? un('-', i) : null; }
+  if (node.t === 'bin' && node.op === '*') {
+    if (node.l.t === 'num') { const g = integrerTerme(node.r); return g ? bin('*', node.l, g) : null; }
+    if (node.r.t === 'num') { const g = integrerTerme(node.l); return g ? bin('*', node.r, g) : null; }
+    return null;
+  }
+  if (node.t === 'bin' && node.op === '/' && node.r.t === 'var' && node.l.t === 'num') return bin('*', node.l, fnN('ln', fnN('abs', varX())));
+  if (node.t === 'bin' && node.op === '^' && node.l.t === 'var' && node.r.t === 'num') {
+    const n = node.r.v; if (n === -1) return fnN('ln', fnN('abs', varX()));
+    return bin('/', bin('^', varX(), num(n + 1)), num(n + 1));
+  }
+  if (node.t === 'func' && node.a.t === 'var') {
+    if (node.name === 'sin') return un('-', fnN('cos', varX()));
+    if (node.name === 'cos') return fnN('sin', varX());
+    if (node.name === 'exp') return fnN('exp', varX());
+  }
+  return null;
+}
+function integrer(node){
+  if (node.t === 'bin' && (node.op === '+' || node.op === '-')) { const l = integrer(node.l), r = integrer(node.r); return (l && r) ? bin(node.op, l, r) : null; }
+  return integrerTerme(node);
+}
+const PREC = { '+': 1, '-': 1, '*': 2, '/': 2, '^': 3 };
+function fmtNum(v){ if (Object.is(v, -0)) v = 0; if (Number.isInteger(v)) return String(v); return String(Math.round(v * 1e8) / 1e8); }
+function toStr(node, pp = 0){
+  if (node.t === 'num') return fmtNum(node.v);
+  if (node.t === 'var') return 'x';
+  if (node.t === 'const') return node.name;
+  if (node.t === 'un') { const s = '-' + toStr(node.a, 4); return pp > 3 ? '(' + s + ')' : s; }
+  if (node.t === 'bin') { const p = PREC[node.op]; const l = toStr(node.l, p); const r = toStr(node.r, p + 1); const s = l + node.op + r; return p < pp ? '(' + s + ')' : s; }
+  if (node.t === 'func') return node.name + '(' + toStr(node.a, 0) + ')';
+}
+function parseMatrice(str){ return str.trim().split(';').map(row => row.trim().split(',').map(s => parseFloat(s.trim()))); }
+function determinant(m){
+  const n = m.length;
+  if (n === 1) return m[0][0]; if (n === 2) return m[0][0] * m[1][1] - m[0][1] * m[1][0];
+  let det = 0;
+  for (let j = 0; j < n; j++) { const mineure = m.slice(1).map(row => row.filter((_, k) => k !== j)); det += (j % 2 === 0 ? 1 : -1) * m[0][j] * determinant(mineure); }
+  return det;
+}
+function inverseMat(m){
+  const n = m.length;
+  const A = m.map((row, i) => row.concat(Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))));
+  for (let col = 0; col < n; col++) {
+    let pr = col; for (let r = col; r < n; r++) if (Math.abs(A[r][col]) > Math.abs(A[pr][col])) pr = r;
+    if (Math.abs(A[pr][col]) < 1e-10) throw new Error('matrice non inversible');
+    [A[col], A[pr]] = [A[pr], A[col]]; const piv = A[col][col];
+    for (let c = 0; c < 2 * n; c++) A[col][c] /= piv;
+    for (let r = 0; r < n; r++) if (r !== col) { const f = A[r][col]; for (let c = 0; c < 2 * n; c++) A[r][c] -= f * A[col][c]; }
+  }
+  return A.map(row => row.slice(n));
+}
+function resoudreSysteme(m, b){
+  const n = m.length;
+  const A = m.map((row, i) => row.concat([b[i]]));
+  for (let col = 0; col < n; col++) {
+    let pr = col; for (let r = col; r < n; r++) if (Math.abs(A[r][col]) > Math.abs(A[pr][col])) pr = r;
+    if (Math.abs(A[pr][col]) < 1e-10) throw new Error('systeme sans solution unique');
+    [A[col], A[pr]] = [A[pr], A[col]]; const piv = A[col][col];
+    for (let c = col; c <= n; c++) A[col][c] /= piv;
+    for (let r = 0; r < n; r++) if (r !== col) { const f = A[r][col]; for (let c = col; c <= n; c++) A[r][c] -= f * A[col][c]; }
+  }
+  return A.map(row => row[n]);
+}
+
+// ============================================================
+// NAVIGATION ENTRE PANNEAUX
+// ============================================================
+const nav = document.getElementById('nav');
+function afficherPanel(id){
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === id));
+}
+nav.addEventListener('change', () => afficherPanel(nav.value));
+
+// ============================================================
+// CALCULATRICE + HISTORIQUE + RACCOURCIS CLAVIER
+// ============================================================
+const ecran = document.getElementById('ecran');
+const BOUTONS = ['sin(','cos(','tan(','sqrt(','(','log(','ln(','^','pi',')','7','8','9','/','C','4','5','6','*','<-','1','2','3','-','=','0','.','e','+',''];
+const grille = document.getElementById('grille');
+function chargerHistorique(){ try { return JSON.parse(localStorage.getItem('historique_calc') || '[]'); } catch(e){ return []; } }
+function sauverHistorique(liste){ localStorage.setItem('historique_calc', JSON.stringify(liste.slice(0,20))); }
+function rafraichirHistorique(){
+  const liste = chargerHistorique();
+  const ul = document.getElementById('listeHistorique');
+  ul.innerHTML = '';
+  liste.forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = item.expr + ' = ' + item.res;
+    li.addEventListener('click', () => { ecran.value = item.expr; });
+    ul.appendChild(li);
+  });
+}
+function calculerEcran(){
+  try {
+    const val = evaluer(parseAST(ecran.value), undefined);
+    const liste = chargerHistorique();
+    liste.unshift({ expr: ecran.value, res: fmtNum(val) });
+    sauverHistorique(liste); rafraichirHistorique();
+    ecran.value = fmtNum(val);
+  } catch(e){ ecran.value = 'Erreur'; }
+}
+BOUTONS.forEach(txt => {
+  if (txt === '') { grille.appendChild(document.createElement('div')); return; }
+  const b = document.createElement('button'); b.textContent = txt; if (txt === '=') b.classList.add('eq');
+  b.addEventListener('click', () => {
+    if (txt === 'C') ecran.value = '';
+    else if (txt === '<-') ecran.value = ecran.value.slice(0, -1);
+    else if (txt === '=') calculerEcran();
+    else ecran.value += txt;
+  });
+  grille.appendChild(b);
+});
+document.getElementById('viderHist').addEventListener('click', () => { sauverHistorique([]); rafraichirHistorique(); });
+rafraichirHistorique();
+
+window.addEventListener('keydown', (e) => {
+  if (!document.getElementById('p-calc').classList.contains('active')) return;
+  if (/^[0-9.+\-*/^()]$/.test(e.key)) { ecran.value += e.key; e.preventDefault(); }
+  else if (e.key === 'Enter') { calculerEcran(); e.preventDefault(); }
+  else if (e.key === 'Backspace') { ecran.value = ecran.value.slice(0, -1); e.preventDefault(); }
+  else if (e.key === 'Escape') { ecran.value = ''; e.preventDefault(); }
+});
+
+// ============================================================
+// GRAPHIQUE (plusieurs fonctions + export PNG)
+// ============================================================
+const canvas = document.getElementById('graphe');
+const ctxG = canvas.getContext('2d');
+const COULEURS = ['#1f4e79', '#2e7d5b', '#d9534f', '#a05bd5', '#d5a05b'];
+function couleurCss(varName, repli){ return getComputedStyle(document.body).getPropertyValue(varName).trim() || repli; }
+function tracerCourbe(){
+  const erreurGraph = document.getElementById('erreurGraph'); erreurGraph.textContent = '';
+  const legende = document.getElementById('legende'); legende.innerHTML = '';
+  const expressions = document.getElementById('fx').value.split(';').map(s => s.trim()).filter(Boolean);
+  const xmin = parseFloat(document.getElementById('xmin').value), xmax = parseFloat(document.getElementById('xmax').value);
+  if (!(xmin < xmax)) { erreurGraph.textContent = 'x min doit etre inferieur a x max.'; return; }
+  const w = canvas.width, h = canvas.height;
+  const series = [];
+  let ymin = Infinity, ymax = -Infinity;
+  expressions.forEach(expr => {
+    let ast; try { ast = parseAST(expr); } catch(e){ return; }
+    const pts = [];
+    for (let px = 0; px < w; px++) {
+      const xi = xmin + (xmax - xmin) * px / (w - 1);
+      let yi; try { yi = evaluer(ast, xi); } catch(e){ yi = NaN; }
+      pts.push(yi);
+      if (Number.isFinite(yi)) { if (yi < ymin) ymin = yi; if (yi > ymax) ymax = yi; }
+    }
+    series.push({ expr, pts });
+  });
+  if (!Number.isFinite(ymin) || !Number.isFinite(ymax)) { erreurGraph.textContent = 'Impossible de tracer sur cet intervalle.'; ctxG.clearRect(0,0,w,h); return; }
+  if (ymin === ymax) { ymin -= 1; ymax += 1; }
+  ctxG.clearRect(0,0,w,h);
+  ctxG.strokeStyle = couleurCss('--border', '#ccc'); ctxG.lineWidth = 1;
+  if (ymin <= 0 && ymax >= 0) { const y0 = h - (0 - ymin) / (ymax - ymin) * h; ctxG.beginPath(); ctxG.moveTo(0, y0); ctxG.lineTo(w, y0); ctxG.stroke(); }
+  if (xmin <= 0 && xmax >= 0) { const x0 = (0 - xmin) / (xmax - xmin) * w; ctxG.beginPath(); ctxG.moveTo(x0, 0); ctxG.lineTo(x0, h); ctxG.stroke(); }
+  series.forEach((s, idx) => {
+    const coul = COULEURS[idx % COULEURS.length];
+    ctxG.strokeStyle = coul; ctxG.lineWidth = 2; ctxG.beginPath();
+    let stylo = false;
+    s.pts.forEach((yi, px) => {
+      if (!Number.isFinite(yi)) { stylo = false; return; }
+      const py = h - (yi - ymin) / (ymax - ymin) * h;
+      if (!stylo) { ctxG.moveTo(px, py); stylo = true; } else ctxG.lineTo(px, py);
+    });
+    ctxG.stroke();
+    const item = document.createElement('span');
+    item.innerHTML = '<span class="puce" style="background:' + coul + '"></span>' + s.expr;
+    legende.appendChild(item);
+  });
+}
+document.getElementById('tracer').addEventListener('click', tracerCourbe);
+document.getElementById('exporterPng').addEventListener('click', () => {
+  const lien = document.createElement('a'); lien.download = 'graphique.png'; lien.href = canvas.toDataURL('image/png'); lien.click();
+});
+tracerCourbe();
+
+// ============================================================
+// EQUATIONS
+// ============================================================
+document.getElementById('resoudreQuad').addEventListener('click', () => {
+  const a = parseFloat(document.getElementById('eqA').value), b = parseFloat(document.getElementById('eqB').value), c = parseFloat(document.getElementById('eqC').value);
+  const zone = document.getElementById('resQuad');
+  if (a === 0) { zone.innerHTML = "a ne peut pas etre nul (ce serait une equation du 1er degre)."; return; }
+  const delta = b*b - 4*a*c;
+  let html = '<div class="etapes">Δ = b² − 4ac = (' + b + ')² − 4×' + a + '×' + c + ' = ' + fmtNum(delta) + '</div>';
+  if (delta > 0) {
+    const x1 = (-b - Math.sqrt(delta)) / (2*a), x2 = (-b + Math.sqrt(delta)) / (2*a);
+    html += 'Δ > 0 : deux solutions reelles<br>x1 = ' + fmtNum(x1) + '<br>x2 = ' + fmtNum(x2);
+  } else if (delta === 0) {
+    const x0 = -b / (2*a);
+    html += 'Δ = 0 : une solution double<br>x0 = ' + fmtNum(x0);
+  } else {
+    const re = -b / (2*a), im = Math.sqrt(-delta) / (2*a);
+    html += 'Δ < 0 : deux solutions complexes<br>x1 = ' + fmtNum(re) + ' − ' + fmtNum(im) + 'i<br>x2 = ' + fmtNum(re) + ' + ' + fmtNum(im) + 'i';
+  }
+  zone.innerHTML = html;
+});
+document.getElementById('resoudreSys').addEventListener('click', () => {
+  const a1 = parseFloat(document.getElementById('sA1').value), b1 = parseFloat(document.getElementById('sB1').value), c1 = parseFloat(document.getElementById('sC1').value);
+  const a2 = parseFloat(document.getElementById('sA2').value), b2 = parseFloat(document.getElementById('sB2').value), c2 = parseFloat(document.getElementById('sC2').value);
+  const zone = document.getElementById('resSys');
+  const D = a1*b2 - a2*b1;
+  if (Math.abs(D) < 1e-12) { zone.innerHTML = 'D = 0 : pas de solution unique (droites paralleles ou confondues).'; return; }
+  const Dx = c1*b2 - c2*b1, Dy = a1*c2 - a2*c1;
+  const x = Dx/D, y = Dy/D;
+  zone.innerHTML = '<div class="etapes">Méthode de Cramer : D = a1b2−a2b1 = ' + fmtNum(D) + ', Dx = ' + fmtNum(Dx) + ', Dy = ' + fmtNum(Dy) + '</div>x = Dx/D = ' + fmtNum(x) + '<br>y = Dy/D = ' + fmtNum(y);
+});
+
+// ============================================================
+// DERIVEES / INTEGRALES
+// ============================================================
+document.getElementById('btnDeriver').addEventListener('click', () => {
+  const zone = document.getElementById('resDeriv');
+  try { const d = simplifier(deriver(parseAST(document.getElementById('dExpr').value))); zone.innerHTML = "f'(x) = " + toStr(d); }
+  catch(e){ zone.innerHTML = 'Erreur : ' + e.message; }
+});
+document.getElementById('btnIntegrer').addEventListener('click', () => {
+  const zone = document.getElementById('resDeriv');
+  try {
+    const i = integrer(parseAST(document.getElementById('dExpr').value));
+    zone.innerHTML = i ? '∫f(x)dx = ' + toStr(simplifier(i)) + ' + C' : "Cette forme n'est pas prise en charge par ce moteur simplifie (fonction composee).";
+  } catch(e){ zone.innerHTML = 'Erreur : ' + e.message; }
+});
+
+// ============================================================
+// MATRICES
+// ============================================================
+document.getElementById('btnDet').addEventListener('click', () => {
+  const zone = document.getElementById('resMat');
+  try { const m = parseMatrice(document.getElementById('matA').value); if (m.length !== m[0].length) throw new Error('la matrice doit etre carree'); zone.innerHTML = 'det(A) = ' + fmtNum(determinant(m)); }
+  catch(e){ zone.innerHTML = 'Erreur : ' + e.message; }
+});
+document.getElementById('btnInv').addEventListener('click', () => {
+  const zone = document.getElementById('resMat');
+  try { const m = parseMatrice(document.getElementById('matA').value); const inv = inverseMat(m); zone.innerHTML = 'A⁻¹ =<br>' + inv.map(row => row.map(fmtNum).join(', ')).join('<br>'); }
+  catch(e){ zone.innerHTML = 'Erreur : ' + e.message; }
+});
+document.getElementById('btnSysMat').addEventListener('click', () => {
+  const zone = document.getElementById('resSysMat');
+  try {
+    const m = parseMatrice(document.getElementById('matA').value);
+    const b = document.getElementById('vecB').value.split(',').map(s => parseFloat(s.trim()));
+    const sol = resoudreSysteme(m, b);
+    zone.innerHTML = 'x = (' + sol.map(fmtNum).join(', ') + ')';
+  } catch(e){ zone.innerHTML = 'Erreur : ' + e.message; }
+});
+
+// ============================================================
+// NOMBRES COMPLEXES
+// ============================================================
+document.getElementById('btnCplx').addEventListener('click', () => {
+  const re1 = parseFloat(document.getElementById('c1re').value), im1 = parseFloat(document.getElementById('c1im').value);
+  const re2 = parseFloat(document.getElementById('c2re').value), im2 = parseFloat(document.getElementById('c2im').value);
+  const op = document.getElementById('cOp').value;
+  let re, im;
+  if (op === '+') { re = re1+re2; im = im1+im2; }
+  else if (op === '-') { re = re1-re2; im = im1-im2; }
+  else if (op === '*') { re = re1*re2 - im1*im2; im = re1*im2 + im1*re2; }
+  else { const d = re2*re2 + im2*im2; if (d === 0) { document.getElementById('resCplx').innerHTML = 'Division par zero.'; return; } re = (re1*re2+im1*im2)/d; im = (im1*re2-re1*im2)/d; }
+  const mod = Math.hypot(re, im), arg = Math.atan2(im, re) * 180 / Math.PI;
+  document.getElementById('resCplx').innerHTML = 'Résultat = ' + fmtNum(re) + (im>=0?' + ':' - ') + Math.abs(fmtNum(im)) + 'i<br>module = ' + fmtNum(mod) + '<br>argument = ' + fmtNum(arg) + '°';
+});
+
+// ============================================================
+// CONVERSION D'UNITES
+// ============================================================
+const UNITES = {
+  angle: { deg: 1, rad: 180/Math.PI },
+  longueur: { m: 1, km: 1000, cm: 0.01, mm: 0.001, mile: 1609.344, pied: 0.3048, pouce: 0.0254 },
+  masse: { kg: 1, g: 0.001, mg: 0.000001, lb: 0.453592, oz: 0.0283495 },
+  temperature: { C: 1, F: 1, K: 1 }
+};
+const uCat = document.getElementById('uCat'), uFrom = document.getElementById('uFrom'), uTo = document.getElementById('uTo'), uVal = document.getElementById('uVal');
+function peuplerUnites(){
+  const options = Object.keys(UNITES[uCat.value]);
+  uFrom.innerHTML = options.map(o => '<option value="'+o+'">'+o+'</option>').join('');
+  uTo.innerHTML = options.map(o => '<option value="'+o+'">'+o+'</option>').join('');
+  uTo.selectedIndex = Math.min(1, options.length - 1);
+  convertirUnite();
+}
+function convertirTemperature(v, from, to){
+  let c; if (from === 'C') c = v; else if (from === 'F') c = (v-32)*5/9; else c = v-273.15;
+  if (to === 'C') return c; if (to === 'F') return c*9/5+32; return c+273.15;
+}
+function convertirUnite(){
+  const v = parseFloat(uVal.value); const cat = uCat.value;
+  const zone = document.getElementById('resUnit');
+  if (isNaN(v)) { zone.innerHTML = ''; return; }
+  let res;
+  if (cat === 'temperature') res = convertirTemperature(v, uFrom.value, uTo.value);
+  else res = v * UNITES[cat][uFrom.value] / UNITES[cat][uTo.value];
+  zone.innerHTML = v + ' ' + uFrom.value + ' = ' + fmtNum(res) + ' ' + uTo.value;
+}
+uCat.addEventListener('change', peuplerUnites);
+uFrom.addEventListener('change', convertirUnite);
+uTo.addEventListener('change', convertirUnite);
+uVal.addEventListener('input', convertirUnite);
+peuplerUnites();
+
+// ============================================================
+// VERSION PRO : deblocage par code
+// ============================================================
+// Codes valides. Ajoute un nouveau code ici a chaque vente (garde une
+// trace de qui a quel code dans ton propre carnet/tableur de ventes).
+const CODES_VALIDES = ['AEF2026', 'PRO-ETUDIANT'];
+const OPTIONS_PRO = [
+  { id: 'p-deriv', label: 'Dérivées & Intégrales' },
+  { id: 'p-cplx', label: 'Nombres complexes' },
+  { id: 'p-unit', label: "Conversions d'unités" },
+];
+function debloquerProUI(){
+  const optionPro = nav.querySelector('option[value="p-pro"]');
+  OPTIONS_PRO.forEach(o => {
+    if (!nav.querySelector('option[value="'+o.id+'"]')) {
+      const opt = document.createElement('option'); opt.value = o.id; opt.textContent = o.label;
+      nav.insertBefore(opt, optionPro);
+    }
+  });
+}
+if (localStorage.getItem('aef_pro') === '1') debloquerProUI();
+
+document.getElementById('btnDebloquer').addEventListener('click', () => {
+  const code = document.getElementById('codePro').value.trim();
+  const zone = document.getElementById('resPro');
+  if (CODES_VALIDES.includes(code) || estCodeRotatifValide(code)) {
+    localStorage.setItem('aef_pro', '1');
+    debloquerProUI();
+    zone.innerHTML = '✅ Débloqué ! Les nouveaux onglets sont dans le menu ci-dessus.';
+  } else {
+    zone.innerHTML = '❌ Code invalide. Vérifie aupres de la personne qui te l\'a vendu.';
+  }
+});
+
+// ============================================================
+// CODE ROTATIF (change toutes les 10 secondes) - panneau admin cache
+// ============================================================
+// Attention : ce "secret" est visible par quiconque inspecte le code
+// source de la page (ce n'est pas un vrai secret cryptographique).
+// Ca suffit pour dissuader le partage occasionnel entre etudiants,
+// mais pas pour bloquer quelqu'un de techniquement avance.
+const SECRET_ROTATIF = 'aef-secret-2026';
+function hashCode(str){ let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; }
+function codePourBloc(bloc){ return String(hashCode(SECRET_ROTATIF + bloc) % 1000000).padStart(6, '0'); }
+function blocActuel(){ return Math.floor(Date.now() / 10000); }
+function estCodeRotatifValide(code){ return code === codePourBloc(blocActuel()) || code === codePourBloc(blocActuel() - 1); }
+
+// Panneau admin cache : accessible uniquement via
+// index.html?admin=aef-secret-2026 (ne pas partager ce lien aux clients)
+const params = new URLSearchParams(location.search);
+if (params.get('admin') === SECRET_ROTATIF) {
+  const boite = document.createElement('div');
+  boite.style.cssText = 'position:fixed;top:10px;right:10px;background:#000;color:#0f0;padding:10px 14px;border-radius:8px;font-family:monospace;font-size:1.3rem;z-index:999;';
+  document.body.appendChild(boite);
+  setInterval(() => {
+    const restant = 10 - Math.floor((Date.now() % 10000) / 1000);
+    boite.textContent = 'Code : ' + codePourBloc(blocActuel()) + ' (' + restant + 's)';
+  }, 250);
+}
+</script>
+</body>
+</html>
